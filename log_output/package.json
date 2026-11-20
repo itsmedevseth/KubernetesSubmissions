@@ -1,0 +1,7 @@
+{
+  "name": "log-output",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node index.js"
+  }
+}
