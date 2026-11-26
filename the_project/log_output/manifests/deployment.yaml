@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-output
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-output
+  template:
+    metadata:
+      labels:
+        app: log-output
+    spec:
+      volumes:
+        - name: shared-logs
+          emptyDir: {}
+        - name: shared-data
+          persistentVolumeClaim:
+            claimName: shared-claim
+      containers:
+        - name: log-writer
+          image: log-writer:v1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: LOG_FILE
+              value: /usr/src/app/files/log.txt
+          volumeMounts:
+            - name: shared-logs
+              mountPath: /usr/src/app/files
+        - name: log-reader
+          image: log-reader:v2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PORT
+              value: "3000"
+            - name: LOG_FILE
+              value: /usr/src/app/files/log.txt
+            - name: PINGPONG_FILE
+              value: /usr/src/app/shared/pingpong.txt
+          volumeMounts:
+            - name: shared-logs
+              mountPath: /usr/src/app/files
+              readOnly: true
+            - name: shared-data
+              mountPath: /usr/src/app/shared
+              readOnly: true
