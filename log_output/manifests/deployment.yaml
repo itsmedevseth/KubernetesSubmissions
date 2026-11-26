@@ -16,7 +16,8 @@ spec:
         app: log-output
     spec:
       containers:
-      - image: log-output:1
+      - image: log-output:v1
         name: log-output
+        imagePullPolicy: IfNotPresent
         resources: {}
 status: {}
