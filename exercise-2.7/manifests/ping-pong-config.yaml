@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: exercises
+  name: ping-pong-config
+data:
+  PGHOST: postgres-svc
+  PGPORT: "5432"
+  DB_RETRY_DELAY_MS: "3000"
+  DB_MAX_RETRIES: "20"
