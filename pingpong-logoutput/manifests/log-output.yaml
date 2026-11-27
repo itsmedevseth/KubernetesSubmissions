@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-output-dep
+  labels:
+    app: log-output
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-output
+  template:
+    metadata:
+      labels:
+        app: log-output
+    spec:
+      # No volumes: data now comes from the Ping pong app over HTTP.
+      containers:
+        - name: log-output
+          image: log-output:1.0
+          imagePullPolicy: Never      # local image, never pulled from a registry
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: PING_PONG_URL
+              value: "http://ping-pong-svc:2345/pings"
+          # Probes check only this app, not Ping pong, so an outage there
+          # doesn't take Log output down with it.
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: log-output-svc
+  labels:
+    app: log-output
+spec:
+  type: ClusterIP
+  selector:
+    app: log-output
+  ports:
+    - name: http
+      port: 2345
+      targetPort: http
+      protocol: TCP
