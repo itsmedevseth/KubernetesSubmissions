@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: project
+
+resources:
+  - manifests/postgres.yaml
+  - manifests/persistentvolumeclaim.yaml
+  - manifests/todo-backend.yaml
+  - manifests/todo-app.yaml
+  - manifests/todo-reminder-cronjob.yaml
+  - manifests/ingress.yaml
+
+configMapGenerator:
+  - name: project-config
+    envs:
+      - config/project-config.env
+
+images:
+  - name: todo-app
+    newName: europe-north1-docker.pkg.dev/PROJECT_ID/dwk-repo/todo-app
+    newTag: "3.5"
+  - name: todo-backend
+    newName: europe-north1-docker.pkg.dev/PROJECT_ID/dwk-repo/todo-backend
+    newTag: "3.5"
+  - name: todo-reminder
+    newName: europe-north1-docker.pkg.dev/PROJECT_ID/dwk-repo/todo-reminder
+    newTag: "3.5"
