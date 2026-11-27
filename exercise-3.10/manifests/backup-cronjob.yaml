@@ -1,0 +1,111 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: todo-backup
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 900
+      ttlSecondsAfterFinished: 604800
+      template:
+        spec:
+          restartPolicy: Never
+          volumes:
+            - name: backup
+              emptyDir: {}
+            - name: gcloud-config
+              emptyDir: {}
+            - name: storage-key
+              secret:
+                secretName: storage-sa-key
+                optional: true
+          initContainers:
+            - name: pg-dump
+              image: postgres:18
+              command:
+                - sh
+                - -c
+                - pg_dump --format=custom --no-owner --file=/backup/todos.dump && ls -l /backup/todos.dump
+              env:
+                - name: PGHOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: project-config
+                      key: PGHOST
+                - name: PGPORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: project-config
+                      key: PGPORT
+                - name: PGDATABASE
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_DB
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_USER
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_PASSWORD
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+          containers:
+            - name: upload
+              image: google/cloud-sdk:slim
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  if [ ! -f /var/secrets/google/key.json ]; then
+                    echo "No storage-sa-key Secret in namespace $POD_NAMESPACE, skipping upload"
+                    exit 0
+                  fi
+                  object="gs://$BACKUP_BUCKET/$POD_NAMESPACE/todos-$(date -u +%Y-%m-%dT%H-%M-%SZ).dump"
+                  gcloud auth activate-service-account --key-file=/var/secrets/google/key.json --quiet
+                  gcloud storage cp /backup/todos.dump "$object"
+                  echo "Backup uploaded to $object"
+              env:
+                - name: BACKUP_BUCKET
+                  valueFrom:
+                    configMapKeyRef:
+                      name: project-config
+                      key: BACKUP_BUCKET
+                - name: POD_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: CLOUDSDK_CONFIG
+                  value: /gcloud-config
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+                  readOnly: true
+                - name: gcloud-config
+                  mountPath: /gcloud-config
+                - name: storage-key
+                  mountPath: /var/secrets/google
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi

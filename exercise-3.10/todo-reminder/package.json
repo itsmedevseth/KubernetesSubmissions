@@ -1,0 +1,12 @@
+{
+  "name": "todo-reminder",
+  "version": "1.0.0",
+  "private": true,
+  "main": "reminder.js",
+  "scripts": {
+    "start": "node reminder.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
